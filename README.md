@@ -1,15 +1,15 @@
-## Product: This is a dataone tagline for the product
+## Notification Service JS: A JavaScript client for the DataONE Notification Service
 
-- **Authors**: Last, First (ORCID); ...
+- **Authors**: Thiessen-Bock, Robyn (https://orcid.org/0000-0002-1615-3963)
 - **License**: [Apache 2](http://opensource.org/licenses/Apache-2.0)
-- [Package source code on GitHub](https://github.com/DataONEorg/reponame)
-- [**Submit Bugs and feature requests**](https://github.com/DataONEorg/reponame/issues)
+- [Package source code on GitHub](https://github.com/DataONEorg/notification-service-js)
+- [**Submit Bugs and feature requests**](https://github.com/DataONEorg/notification-service-js/issues)
 - Contact us: support@dataone.org
 - [DataONE discussions](https://github.com/DataONEorg/dataone/discussions)
 
-*Product overview goes here.* Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+The DataONE Notification Service JavaScript client provides an interface to the [DataONE Notification Service API]. This interface can be used by web applications to allow users to subscribe, unsubscribe, and manage notifications for datasets and portals. Events users can subscribe to include downloads, views, citations, derived products, new datasets added to a portal, reminders to update a portal, etc.
 
-DataONE in general, and HashStore in particular, are open source, community projects.  We [welcome contributions](./CONTRIBUTING.md) in many forms, including code, graphics, documentation, bug reports, testing, etc.  Use the [DataONE discussions](https://github.com/DataONEorg/dataone/discussions) to discuss these contributions with us.
+DataONE in general, and the Notification Service client in particular, are open source, community projects.  We [welcome contributions](./CONTRIBUTING.md) in many forms, including code, graphics, documentation, bug reports, testing, etc.  Use the [DataONE discussions](https://github.com/DataONEorg/dataone/discussions) to discuss these contributions with us.
 
 
 ## Documentation
@@ -18,25 +18,7 @@ Documentation is a work in progress, and can be found ...
 
 ## Development build
 
-This is a python package, and built using the [Python Poetry](https://python-poetry.org) build tool.
-
-To install locally, create a virtual environment for python 3.9+, 
-install poetry, and then install or build the package with `poetry install` or `poetry build`, respectively.
-
-To run tests, navigate to the root directory and run `pytest -s`. The test suite contains tests that
-take a longer time to run (relating to the storage of large files) - to execute all tests, run
-`pytest --run-slow`. To see detailed
-
 ## Usage Example
-
-To view more details about the Public API - see 'hashstore.py` interface documentation
-
-```py
-from product import Product
-
-# Example code here...
-
-```
 
 ## License
 ```
