@@ -1,0 +1,33 @@
+{
+  "name": "dataone-notifications-js",
+  "version": "0.0.1",
+  "description": "A wrapper for the DataONE notification service API",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "demo": "serve"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DataONEorg/notification-service-js.git"
+  },
+  "keywords": [
+    "notifications",
+    "dataone",
+    "dataset",
+    "data",
+    "package",
+    "events"
+  ],
+  "author": "Robyn Thiessen-Bock",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/DataONEorg/notification-service-js/issues"
+  },
+  "homepage": "https://github.com/DataONEorg/notification-service-js#readme",
+  "dependencies": {
+    "ky": "^1.11.0"
+  },
+  "devDependencies": {
+    "serve": "^14.2.5"
+  }
+}
