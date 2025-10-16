@@ -1,3 +1,5 @@
+import { NotificationClient } from "@src/client.ts";
+
 const DEFAULT_RESOURCE_TYPES = ["datasetChanges", "citations"];
 const DEFAULT_DEMO_API_PREFIX = "https://notifications.test.dataone.org/notifications";
 const DEFAULT_TOKEN_PLACEHOLDER = "your-access-token";
