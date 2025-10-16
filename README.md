@@ -9,18 +9,135 @@
 
 The DataONE Notification Service JavaScript client provides an interface to the [DataONE Notification Service API]. This interface can be used by web applications to allow users to subscribe, unsubscribe, and manage notifications for datasets and portals. Events users can subscribe to include downloads, views, citations, derived products, new datasets added to a portal, reminders to update a portal, etc.
 
-DataONE in general, and the Notification Service client in particular, are open source, community projects.  We [welcome contributions](./CONTRIBUTING.md) in many forms, including code, graphics, documentation, bug reports, testing, etc.  Use the [DataONE discussions](https://github.com/DataONEorg/dataone/discussions) to discuss these contributions with us.
-
+DataONE in general, and the Notification Service client in particular, are open source, community projects. We [welcome contributions](./CONTRIBUTING.md) in many forms, including code, graphics, documentation, bug reports, testing, etc. Use the [DataONE discussions](https://github.com/DataONEorg/dataone/discussions) to discuss these contributions with us.
 
 ## Documentation
 
-Documentation is a work in progress, and can be found ...
+## npm (ES modules & modern bundlers)
 
-## Development build
+```sh
+# npm install dataone-notifications
+npm install git+https://github.com/DataONEorg/notification-service-js.git
+```
 
-## Usage Example
+```ts
+import NotificationClient from "dataone-notifications";
+
+const client = new NotificationClient({
+  /* ... */
+});
+```
+
+## RequireJS / AMD (ky bundled)
+
+```sh
+git clone https://github.com/DataONEorg/notification-service-js.git
+cd notification-service-js
+npm install
+npm run build
+cp dist/dataone-notifications.bundle.umd.js /path/to/your/project/deps/
+```
+
+```js
+define(["deps/dataone-notifications.bundle.umd"], (DataONENotifications) => {
+  const { NotificationClient } = DataONENotifications;
+  const client = new NotificationClient({
+    /* ... */
+  });
+});
+```
+
+### <script> tag (UMD, ky bundled)
+
+Install
+
+```sh
+git clone https://github.com/DataONEorg/notification-service-js.git
+cd notification-service-js
+npm install
+npm run build
+cp /path/to/notification-service-js/dist/notification-client.umd.bundle.js /path/to/your/project/deps/
+```
+
+```html
+<script src="deps/dataone-notifications.bundle.umd.js"></script>
+<script>
+  const { NotificationClient } = window.DataONENotifications;
+  const client = new NotificationClient({
+    /* ... */
+  });
+</script>
+```
+
+## Usage
+
+```js
+const client = new NotificationClient({
+  prefixUrl: "https://example.notifications.dataone.org/notify/v1/",
+  getToken: async () => {
+    // this function must return a valid JWT token string
+    return "token";
+  },
+});
+
+// The identifier for the resource to subscribe to
+const pid = "doi:10.abc/123";
+
+// Subscribe to notifications for a dataset
+const subscription = await client.subscribe(pid, "datasetChanges");
+console.log("Subscription summary:", subscription);
+
+// List current subscriptions for a resource type
+const datasetSubs = await client.getSubscriptions("datasetChanges");
+console.log(
+  "The user with ID",
+  datasetSubs.subject,
+  "has",
+  datasetSubs.resourceIds.length,
+  "dataset subscriptions.",
+);
+
+// Unsubscribe from notifications for a dataset
+await client.unsubscribe(pid, "datasetChanges");
+console.log("Unsubscribed from notifications for", pid);
+
+// Use some of the ky features
+const subscription2 = await client.subscribe(pid, "datasetChanges", {
+  // 10 second timeout
+  timeout: 10 * 1000,
+  // hooks
+  hooks: {
+    beforeRequest: [
+      (request) => {
+        console.log("Starting request for", request);
+      },
+    ],
+    afterResponse: [
+      (request, options, response) => {
+        console.log("Received response for", request, response);
+        // Modify the response.
+        return response;
+      },
+    ],
+  },
+});
+```
+
+## Development
+
+Install dependencies with `npm install`.
+
+- `npm run demo` starts Vite in `demo/` at http://localhost:4173, hot-loading changes from `src/client.ts`.
+- `npm run build:demo` bundles the static demo into `demo/dist/`.
+- `npm run build` runs tsup to emit:
+  - ESM library (`dist/dataone-notifications.mjs`, ky external)
+  - UMD bundle (`dist/dataone-notifications.bundle.umd.js`, ky included)
+  - Type definitions (`dist/dataone-notifications.d.ts`)
+- `npm test` runs the Vitest suite.
+- `npm run lint` and `npm run format:check` ensure code style stays consistent.
 
 ## License
+
 ```
 Copyright [2025] [Regents of the University of California]
 
@@ -38,6 +155,7 @@ limitations under the License.
 ```
 
 ## Acknowledgements
+
 Work on this package was supported by:
 
 - DataONE Network

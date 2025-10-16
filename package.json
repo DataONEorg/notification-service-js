@@ -1,10 +1,29 @@
 {
-  "name": "dataone-notifications-js",
+  "name": "dataone-notifications",
   "version": "0.0.1",
   "description": "A wrapper for the DataONE notification service API",
+  "main": "./dist/dataone-notifications.mjs",
+  "module": "./dist/dataone-notifications.mjs",
+  "types": "./dist/dataone-notifications.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/dataone-notifications.d.ts",
+      "import": "./dist/dataone-notifications.mjs",
+      "default": "./dist/dataone-notifications.mjs"
+    },
+    "./bundle": {
+      "default": "./dist/dataone-notifications.bundle.umd.js"
+    }
+  },
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "demo": "serve"
+    "test": "vitest",
+    "demo": "vite --config vite.demo.config.ts --mode demo --port 4173",
+    "build": "tsup",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format:fix": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "repository": {
     "type": "git",
@@ -28,6 +47,14 @@
     "ky": "^1.11.0"
   },
   "devDependencies": {
-    "serve": "^14.2.5"
+    "@typescript-eslint/eslint-plugin": "^8.46.1",
+    "@typescript-eslint/parser": "^8.46.1",
+    "eslint": "^9.37.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.10",
+    "vitest": "^3.2.4"
   }
 }

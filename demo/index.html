@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notification Service JS Demo</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Notification Service JS Demo</h1>
+        <p>
+          Configure the client, then try subscribing, unsubscribing, or listing subscriptions for a
+          resource.
+        </p>
+      </header>
+
+      <section class="panel" aria-labelledby="configuration-heading">
+        <h2 id="configuration-heading">1. Configure the client</h2>
+        <form id="config-form">
+          <div class="grid two">
+            <label>
+              API prefix URL
+              <input
+                id="prefix-url"
+                name="prefix-url"
+                type="url"
+                placeholder="https://notifications.test.dataone.org/notifications"
+                value="https://notifications.test.dataone.org/notifications"
+                required
+              />
+            </label>
+            <label>
+              Access token
+              <input
+                id="access-token"
+                name="access-token"
+                type="text"
+                placeholder="Paste a bearer token"
+                value=""
+              />
+              <p class="hint">
+                The token is read from this field right before each request via the
+                <code>getToken</code> callback.
+              </p>
+            </label>
+          </div>
+
+          <p class="hint">
+            * If using url
+            <code>https://notifications.test.dataone.org/notifications</code>, you can get a test
+            token from
+            <a
+              href="https://metacat-dev.test.dataone.org/my-profile/s=settings/s=token"
+              target="_blank"
+              rel="noopener noreferrer"
+              >metacat-dev.test.dataone</a
+            >.
+          </p>
+
+          <label>
+            Resource types (comma-separated)
+            <input
+              id="resource-types"
+              name="resource-types"
+              type="text"
+              value="datasetChanges, citations"
+              placeholder="datasetChanges, citations"
+            />
+            <p class="hint">
+              These populate the resource type selectors below and are passed to the client as
+              <code>resourceTypes</code>.
+            </p>
+          </label>
+
+          <div class="inline-fields">
+            <button type="submit">Instantiate client</button>
+            <button type="button" class="secondary" id="clear-log">Clear log</button>
+          </div>
+
+          <p id="status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="panel" aria-labelledby="actions-heading">
+        <h2 id="actions-heading">2. Try the API endpoints</h2>
+        <div class="grid two">
+          <form id="subscribe-form">
+            <h3>Subscribe</h3>
+            <label>
+              PID
+              <input id="subscribe-pid" type="text" placeholder="urn:uuid:example-pid" required />
+            </label>
+            <label>
+              Resource type
+              <select id="subscribe-resource" class="resource-type-select"></select>
+            </label>
+            <button type="submit">Subscribe</button>
+          </form>
+
+          <form id="unsubscribe-form">
+            <h3>Unsubscribe</h3>
+            <label>
+              PID
+              <input id="unsubscribe-pid" type="text" placeholder="urn:uuid:example-pid" required />
+            </label>
+            <label>
+              Resource type
+              <select id="unsubscribe-resource" class="resource-type-select"></select>
+            </label>
+            <button type="submit">Unsubscribe</button>
+          </form>
+        </div>
+
+        <form id="list-form">
+          <h3>List subscriptions</h3>
+          <label>
+            Resource type
+            <select id="list-resource" class="resource-type-select"></select>
+          </label>
+          <button type="submit">Fetch subscriptions</button>
+        </form>
+      </section>
+
+      <section class="panel" aria-labelledby="log-heading">
+        <h2 id="log-heading">3. Inspect responses</h2>
+        <p class="hint">
+          Requests rely on your network environment and token. Any thrown error is logged below so
+          you can see what the client received from the service.
+        </p>
+        <div id="log-output" aria-live="polite" aria-label="Activity log"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="tips-heading">
+        <h2 id="tips-heading">Implementation notes</h2>
+        <details open>
+          <summary>How this demo uses the library</summary>
+          <ul>
+            <li>
+              A single <code>NotificationClient</code> instance is created after you submit the
+              configuration form.
+            </li>
+            <li>
+              <code>getToken</code> is a promise-returning callback that reads the token input. In
+              production, you can pass in a method that fetches a fresh token from the dataone token
+              endpoint.
+            </li>
+            <li>
+              <code>validatePID</code> is a simple async check that ensures the PID input is not
+              empty. In the future, we could replace it with verification that the resource type
+              matches the format ID of the object.
+            </li>
+            <li>
+              Each form handler awaits the client call and pushes either the JSON response (if any)
+              or the thrown error into the log viewer.
+            </li>
+          </ul>
+        </details>
+      </section>
+    </main>
+    <script type="module" src="index.js"></script>
+  </body>
+</html>

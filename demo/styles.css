@@ -1,0 +1,205 @@
+:root {
+  color-scheme: light dark;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  line-height: 1.4;
+  --accent: #0a7bc2;
+  --border: #d0d7de;
+  --bg: #f8fafc;
+  --bg-panel: #ffffff;
+  --text-muted: #556;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --border: #1f2933;
+    --bg: #0f172a;
+    --bg-panel: #111827;
+    --text-muted: #94a3b8;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: inherit;
+}
+
+main {
+  margin: 0 auto;
+  max-width: 960px;
+  padding: 2.5rem 1.5rem 4rem;
+  display: grid;
+  gap: 2rem;
+}
+
+header h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.75rem, 2vw + 1rem, 2.5rem);
+}
+
+header p {
+  margin: 0;
+  color: var(--text-muted);
+  max-width: 65ch;
+}
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 6%);
+}
+
+.panel h2 {
+  margin-top: 0;
+  font-size: 1.25rem;
+}
+
+form {
+  display: grid;
+  gap: 1rem;
+}
+
+label {
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+input,
+select,
+button,
+textarea {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  background: transparent;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(10 123 194 / 25%);
+}
+
+button {
+  cursor: pointer;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0.6rem 1.25rem;
+  font-weight: 600;
+  background: var(--accent);
+  color: white;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+button:is(:hover, :focus-visible) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 14px rgb(10 123 194 / 30%);
+}
+
+button.secondary {
+  background: transparent;
+  color: inherit;
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+button.secondary:is(:hover, :focus-visible) {
+  border-color: var(--accent);
+  box-shadow: 0 8px 14px rgb(10 123 194 / 20%);
+}
+
+.grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.grid.two {
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+}
+
+.hint {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.inline-fields {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .inline-fields {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    align-items: end;
+  }
+}
+
+#status {
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+#log-output {
+  display: grid;
+  gap: 1rem;
+  max-height: min(480px, 45vh);
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.log-entry {
+  background: rgba(10, 123, 194, 0.1);
+  border-radius: 12px;
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid rgba(10, 123, 194, 0.15);
+}
+
+.log-entry h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+
+.log-entry pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+code {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
+  background: rgba(99, 102, 241, 0.15);
+  padding: 0.08rem 0.35rem;
+  border-radius: 0.35rem;
+}
