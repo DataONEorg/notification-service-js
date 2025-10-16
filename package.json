@@ -20,6 +20,7 @@
     "test": "vitest",
     "demo": "vite --config vite.demo.config.ts --mode demo --port 4173",
     "build": "tsup",
+    "build:demo": "vite build --config vite.demo.config.ts --mode demo",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format:fix": "prettier --write .",

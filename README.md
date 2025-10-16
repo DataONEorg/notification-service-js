@@ -136,6 +136,10 @@ Install dependencies with `npm install`.
 - `npm test` runs the Vitest suite.
 - `npm run lint` and `npm run format:check` ensure code style stays consistent.
 
+## GitHub Pages demo
+
+- The workflow `.github/workflows/deploy-demo.yml` builds the Vite demo and publishes `demo/dist/` to GitHub Pages.
+
 ## License
 
 ```
