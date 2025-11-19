@@ -34,6 +34,33 @@ const HTTP_METHODS = Object.freeze({
 } as const);
 
 /**
+ * Endpoint definitions for the Notification Service API. The key is the method
+ * name on the client, and the value is the corresponding endpoint path.
+ */
+export const ENDPOINTS = Object.freeze({
+  subscribe: {
+    endpoint: "{resource}/{pid}",
+    method: HTTP_METHODS.POST,
+  },
+  unsubscribe: {
+    endpoint: "{resource}/{pid}",
+    method: HTTP_METHODS.DELETE,
+  },
+  getSubscriptionsByPid: {
+    endpoint: "pid/{pid}",
+    method: HTTP_METHODS.GET,
+  },
+  getSubscriptionsByType: {
+    endpoint: "{resource}",
+    method: HTTP_METHODS.GET,
+  },
+  ping: {
+    endpoint: "metrics/ping",
+    method: HTTP_METHODS.GET,
+  },
+} as const);
+
+/**
  * Represents the allowed HTTP methods as a type.
  */
 type HttpMethod = (typeof HTTP_METHODS)[keyof typeof HTTP_METHODS];
@@ -59,9 +86,8 @@ export type KyRequestOptions = Omit<KyOptions, "method" | "prefixUrl" | "headers
  * with required metadata like resource type and HTTP method.
  */
 interface InternalRequestOptions extends KyRequestOptions {
-  resourceType: string;
-  method?: HttpMethod;
-  pidRequired?: boolean;
+  methodName: keyof typeof ENDPOINTS;
+  resource: ResourceDefinition;
 }
 
 /**
@@ -83,6 +109,20 @@ interface SubscriptionResponse {
   resourceIds: string[];
   resourceType: string;
   subject: string;
+}
+
+/** Shape of the ping response returned by the notification service. */
+interface PingResponse {
+  status: string;
+}
+
+/**
+ * Definition for a resource to subscribe or unsubscribe from, or to retrieve
+ * subscriptions for. Includes a PID and optional (in some cases) resource type.
+ */
+export interface ResourceDefinition {
+  pid: string;
+  resourceType: string;
 }
 
 /**
@@ -136,101 +176,108 @@ export class NotificationClient {
 
   /**
    * Subscribe to notifications for a given PID and resource type.
-   * @param pid - The persistent identifier to subscribe to.
-   * @param resourceType - The type of resource to subscribe to.
+   * @param resource - The resource object containing pid and optional resourceType.
    * @param options - Optional Ky request options.
    * @returns A promise resolving to the subscription response or undefined.
    */
   subscribe(
-    pid: string,
-    resourceType: string,
+    resource: ResourceDefinition,
     options: KyRequestOptions = {},
   ): Promise<SubscriptionResponse | undefined> {
-    return this.request<SubscriptionResponse>(pid, {
-      resourceType,
-      method: HTTP_METHODS.POST,
-      pidRequired: true,
+    return this.request<SubscriptionResponse>({
+      methodName: "subscribe",
+      resource,
       ...options,
     });
   }
 
   /**
    * Unsubscribe from notifications for a given PID and resource type.
-   * @param pid - The persistent identifier to unsubscribe from.
-   * @param resourceType - The type of resource to unsubscribe from.
+   * @param resource - The resource object containing pid and resourceType.
    * @param options - Optional Ky request options.
    * @returns A promise resolving when the operation completes.
    */
   async unsubscribe(
-    pid: string,
-    resourceType: string,
+    resource: ResourceDefinition,
     options: KyRequestOptions = {},
-  ): Promise<void> {
-    await this.request<void>(pid, {
-      resourceType,
-      method: HTTP_METHODS.DELETE,
-      pidRequired: true,
+  ): Promise<SubscriptionResponse | undefined> {
+    return this.request<SubscriptionResponse>({
+      methodName: "unsubscribe",
+      resource,
       ...options,
     });
   }
 
   /**
    * Retrieve subscriptions for a given resource type.
-   * @param resourceType - The type of resource to retrieve subscriptions for.
+   * @param resource - The resource object containing pid and resourceType.
    * @param options - Optional Ky request options.
    * @returns A promise resolving to the subscriptions or undefined.
    */
-  getSubscriptions<T = unknown>(
-    resourceType: string,
+  getSubscriptionsByPid(
+    resource: ResourceDefinition,
     options: KyRequestOptions = {},
-  ): Promise<T | undefined> {
-    return this.request<T>(null, {
-      resourceType,
-      method: HTTP_METHODS.GET,
-      pidRequired: false,
+  ): Promise<SubscriptionResponse | undefined> {
+    return this.request<SubscriptionResponse>({
+      methodName: "getSubscriptionsByPid",
+      resource,
       ...options,
     });
   }
 
-  private normalizeResourceTypes(resourceTypes: ReadonlyArray<string>): string[] {
-    return Array.from(
-      new Set(resourceTypes.map((type) => type.trim()).filter((type) => type.length > 0)),
-    );
+  /**
+   * Retrieve subscriptions for a given resource type.
+   * @param resource - The resource object containing pid and resourceType.
+   * @param options - Optional Ky request options.
+   * @returns A promise resolving to the subscriptions or undefined.
+   */
+  getSubscriptionsByType(
+    resource: ResourceDefinition,
+    options: KyRequestOptions = {},
+  ): Promise<SubscriptionResponse | undefined> {
+    return this.request<SubscriptionResponse>({
+      methodName: "getSubscriptionsByType",
+      resource,
+      ...options,
+    });
   }
 
-  private async request<T = unknown>(
-    pid: string | null,
-    {
-      resourceType,
-      method = HTTP_METHODS.GET,
-      pidRequired = true,
-      ...rest
-    }: InternalRequestOptions,
-  ): Promise<T | undefined> {
-    const normalizedResourceType = resourceType.trim();
-    if (!this.resourceTypes.has(normalizedResourceType)) {
-      throw new TypeError(ERROR_MESSAGES.resourceType);
-    }
+  /**
+   * Ping the notification service to check its availability.
+   * @param options - Optional Ky request options.
+   * @returns A promise resolving to the ping response or undefined.
+   */
+  ping(options: KyRequestOptions = {}): Promise<PingResponse | undefined> {
+    return this.request<PingResponse>({
+      methodName: "ping",
+      resource: { pid: "", resourceType: "" },
+      ...options,
+    });
+  }
 
-    const normalizedPid = pid?.trim() ?? "";
-    if (pidRequired && normalizedPid.length === 0) {
-      throw new TypeError(ERROR_MESSAGES.noPid);
-    }
+  private async request<T = unknown>({
+    methodName,
+    resource,
+    ...rest
+  }: InternalRequestOptions): Promise<T | undefined> {
+    const { resourceType, pid } = resource ?? {};
+    // Normalize inputs
+    const normalizedResourceType: string = resourceType?.trim() ?? "";
+    const normalizedPid: string = pid?.trim() ?? "";
 
-    if (pidRequired && normalizedPid.length > 0) {
-      const isValid = await Promise.resolve(this.validatePID(normalizedPid));
-      if (!isValid) throw new TypeError(ERROR_MESSAGES.invalidPid);
-    }
+    // Validate inputs based on endpoint requirements
+    this.validateInput(methodName, normalizedResourceType, normalizedPid);
+    // If no error, proceed with the request
 
+    // Get authentication token, always required
     const token = await Promise.resolve(this.getToken());
     if (!token) throw new Error(ERROR_MESSAGES.noToken);
 
-    // Construct the endpoint URL by encoding resourceType and optionally PID
-    let endpoint = encodeURIComponent(normalizedResourceType);
-    if (pidRequired && normalizedPid.length > 0) {
-      endpoint = `${endpoint}/${encodeURIComponent(normalizedPid)}`;
-    }
+    // Construct the endpoint
+    const endpoint = this.constructEndpoint(methodName, normalizedResourceType, normalizedPid);
+    const method = this.getHTTPMethod(methodName);
 
+    // Make the request using ky
     const response = await this.ky(endpoint, {
       method,
       headers: { Authorization: `Bearer ${token}` },
@@ -242,6 +289,54 @@ export class NotificationClient {
     }
 
     return (await response.json()) as T;
+  }
+
+  private normalizeResourceTypes(resourceTypes: ReadonlyArray<string>): string[] {
+    return Array.from(
+      new Set(resourceTypes.map((type) => type.trim()).filter((type) => type.length > 0)),
+    );
+  }
+
+  private validateInput(
+    methodName: keyof typeof ENDPOINTS,
+    resourceType: string,
+    pid: string,
+  ): void {
+    const endpointConfig = ENDPOINTS[methodName];
+    const resourceTypeRequired: boolean = endpointConfig.endpoint.includes("{resource}");
+    const pidRequired: boolean = endpointConfig.endpoint.includes("{pid}");
+
+    if (resourceTypeRequired) {
+      if (!resourceType) throw new Error(ERROR_MESSAGES.resourceType);
+      if (!this.resourceTypes.has(resourceType)) throw new Error(ERROR_MESSAGES.resourceType);
+    }
+
+    if (pidRequired) {
+      if (!pid) throw new Error(ERROR_MESSAGES.noPid);
+      const isValidPid = this.validatePID(pid);
+      if (isValidPid instanceof Promise) {
+        isValidPid.then((valid) => {
+          if (!valid) throw new Error(ERROR_MESSAGES.invalidPid);
+        });
+      } else if (!isValidPid) {
+        throw new Error(ERROR_MESSAGES.invalidPid);
+      }
+    }
+  }
+
+  private constructEndpoint(
+    methodName: keyof typeof ENDPOINTS,
+    resourceType?: string,
+    pid?: string,
+  ): string {
+    let endpoint: string = ENDPOINTS[methodName].endpoint;
+    endpoint = endpoint.replace(/\{resource\}/g, encodeURIComponent(resourceType ?? ""));
+    endpoint = endpoint.replace(/\{pid\}/g, encodeURIComponent(pid ?? ""));
+    return endpoint;
+  }
+
+  private getHTTPMethod(methodName: keyof typeof ENDPOINTS): HttpMethod {
+    return ENDPOINTS[methodName].method;
   }
 }
 
