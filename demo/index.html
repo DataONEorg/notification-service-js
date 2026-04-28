@@ -21,14 +21,18 @@
         <form id="config-form">
           <div class="grid two">
             <label>
-              API prefix URL
+              Service root URL
               <input
                 id="prefix-url"
                 name="prefix-url"
                 type="url"
-                placeholder="https://notifications.test.dataone.org/notifications/v1/"
+                placeholder="https://notifications.test.dataone.org/notifications"
                 value="https://notifications.test.dataone.org/notifications"
               />
+            </label>
+            <label>
+              API version
+              <input id="api-version" name="api-version" type="text" value="v1" placeholder="v1" />
             </label>
             <label>
               Access token
@@ -47,9 +51,9 @@
           </div>
 
           <p class="hint">
-            * If using url
-            <code>https://notifications.test.dataone.org/notifications</code>, you can get a test
-            token from
+            * If using service root
+            <code>https://notifications.test.dataone.org/notifications</code> with API version
+            <code>v1</code>, you can get a test token from
             <a
               href="https://metacat-dev.test.dataone.org/my-profile/s=settings/s=token"
               target="_blank"
@@ -84,6 +88,11 @@
 
       <section class="panel" aria-labelledby="actions-heading">
         <h2 id="actions-heading">2. Try the API endpoints</h2>
+        <form id="ping-form">
+          <h3>Ping</h3>
+          <button type="submit">Ping service</button>
+        </form>
+
         <div class="grid two">
           <form id="subscribe-form">
             <h3>Subscribe</h3>
@@ -120,6 +129,15 @@
           </label>
           <button type="submit">Fetch subscriptions</button>
         </form>
+
+        <form id="lookup-form">
+          <h3>Find resource types for PID</h3>
+          <label>
+            PID
+            <input id="lookup-pid" type="text" placeholder="urn:uuid:example-pid" required />
+          </label>
+          <button type="submit">Fetch resource types</button>
+        </form>
       </section>
 
       <section class="panel" aria-labelledby="log-heading">
@@ -142,8 +160,8 @@
             </li>
             <li>
               <code>getToken</code> is a promise-returning callback that reads the token input. In
-              production, you can pass in a method that fetches a fresh token from the dataone token
-              endpoint.
+              production, pass in a method that returns a current DataONE token. The ping endpoint
+              does not use this callback.
             </li>
             <li>
               <code>validatePID</code> is a simple async check that ensures the PID input is not
@@ -151,8 +169,8 @@
               matches the format ID of the object.
             </li>
             <li>
-              Each form handler awaits the client call and pushes either the JSON response (if any)
-              or the thrown error into the log viewer.
+              Each form handler calls the client with an object argument and pushes either the JSON
+              response (if any) or the thrown error into the log viewer.
             </li>
           </ul>
         </details>

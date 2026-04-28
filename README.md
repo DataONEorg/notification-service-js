@@ -47,15 +47,14 @@ define(["deps/dataone-notifications.bundle.umd"], (DataONENotifications) => {
 });
 ```
 
-### <script> tag (UMD, ky bundled)
-
+### `<script>` tag (UMD, ky bundled)
 
 ```sh
 git clone https://github.com/DataONEorg/notification-service-js.git
 cd notification-service-js
 npm install
 npm run build
-cp /path/to/notification-service-js/dist/notification-client.umd.bundle.js /path/to/your/project/deps/
+cp dist/dataone-notifications.bundle.umd.js /path/to/your/project/deps/
 ```
 
 ```html
@@ -72,9 +71,10 @@ cp /path/to/notification-service-js/dist/notification-client.umd.bundle.js /path
 
 ```js
 const client = new NotificationClient({
-  prefixUrl: "https://example.notifications.dataone.org/notify/v1/",
+  prefixUrl: "https://notifications.test.dataone.org/notifications",
+  apiVersion: "v1",
   getToken: async () => {
-    // this function must return a valid JWT token string
+    // Return a valid JWT token string for authenticated endpoints.
     return "token";
   },
 });
@@ -83,11 +83,16 @@ const client = new NotificationClient({
 const pid = "doi:10.abc/123";
 
 // Subscribe to notifications for a dataset
-const subscription = await client.subscribe(pid, "datasetChanges");
+const subscription = await client.subscribe({
+  pid,
+  resourceType: "datasetChanges",
+});
 console.log("Subscription summary:", subscription);
 
 // List current subscriptions for a resource type
-const datasetSubs = await client.getSubscriptions("datasetChanges");
+const datasetSubs = await client.getSubscriptionsByType({
+  resourceType: "datasetChanges",
+});
 console.log(
   "The user with ID",
   datasetSubs.subject,
@@ -96,31 +101,52 @@ console.log(
   "dataset subscriptions.",
 );
 
+// List resource types the user is subscribed to for a PID
+const resourceTypes = await client.getResourceTypesByPid({ pid });
+console.log("Subscribed resource types for PID:", resourceTypes);
+
 // Unsubscribe from notifications for a dataset
-await client.unsubscribe(pid, "datasetChanges");
+await client.unsubscribe({
+  pid,
+  resourceType: "datasetChanges",
+});
 console.log("Unsubscribed from notifications for", pid);
 
+// Check service health. This endpoint does not require a token.
+const ping = await client.ping();
+console.log("Notification service status:", ping.status);
+
 // Use some of the ky features
-const subscription2 = await client.subscribe(pid, "datasetChanges", {
-  // 10 second timeout
-  timeout: 10 * 1000,
-  // hooks
-  hooks: {
-    beforeRequest: [
-      (request) => {
-        console.log("Starting request for", request);
-      },
-    ],
-    afterResponse: [
-      (request, options, response) => {
-        console.log("Received response for", request, response);
-        // Modify the response.
-        return response;
-      },
-    ],
+const subscription2 = await client.subscribe(
+  {
+    pid,
+    resourceType: "datasetChanges",
   },
-});
+  {
+    // 10 second timeout
+    timeout: 10 * 1000,
+    // hooks
+    hooks: {
+      beforeRequest: [
+        (request) => {
+          console.log("Starting request for", request);
+        },
+      ],
+      afterResponse: [
+        (request, options, response) => {
+          console.log("Received response for", request, response);
+          // Modify the response.
+          return response;
+        },
+      ],
+    },
+  },
+);
 ```
+
+`prefixUrl` should point to the notification service root, such as
+`https://notifications.test.dataone.org/notifications`. By default the client appends `/v1`.
+Pass `apiVersion: false` if the URL already contains the exact API path you want to use.
 
 ## Development
 
