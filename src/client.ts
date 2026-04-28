@@ -46,7 +46,7 @@ export const ENDPOINTS = Object.freeze({
     endpoint: "{resource}/{pid}",
     method: HTTP_METHODS.DELETE,
   },
-  getSubscriptionsByPid: {
+  getResourceTypesByPid: {
     endpoint: "pid/{pid}",
     method: HTTP_METHODS.GET,
   },
@@ -68,12 +68,12 @@ type HttpMethod = (typeof HTTP_METHODS)[keyof typeof HTTP_METHODS];
 /**
  * Function type that returns an authentication token, possibly asynchronously.
  */
-type TokenSupplier = () => string | null | undefined | Promise<string | null | undefined>;
+export type TokenSupplier = () => string | null | undefined | Promise<string | null | undefined>;
 
 /**
  * Function type to validate a PID, possibly asynchronously.
  */
-type PidValidator = (pid: string) => boolean | Promise<boolean>;
+export type PidValidator = (pid: string) => boolean | Promise<boolean>;
 
 /**
  * Options for Ky requests used internally, omitting method, prefixUrl, and headers
@@ -87,7 +87,7 @@ export type KyRequestOptions = Omit<KyOptions, "method" | "prefixUrl" | "headers
  */
 interface InternalRequestOptions extends KyRequestOptions {
   methodName: keyof typeof ENDPOINTS;
-  resource: ResourceDefinition;
+  resource?: RequestDefinition;
 }
 
 /**
@@ -95,7 +95,7 @@ interface InternalRequestOptions extends KyRequestOptions {
  */
 export interface NotificationClientOptions {
   prefixUrl: string;
-  getToken: TokenSupplier;
+  getToken?: TokenSupplier;
   validatePID?: PidValidator;
   resourceTypes?: ReadonlyArray<string>;
   kyOptions?: KyOptions;
@@ -105,25 +105,39 @@ export interface NotificationClientOptions {
 /**
  * Shape of the subscription response returned when subscribing to notifications.
  */
-interface SubscriptionResponse {
+export interface SubscriptionResponse {
   resourceIds: string[];
   resourceType: string;
   subject: string;
 }
 
 /** Shape of the ping response returned by the notification service. */
-interface PingResponse {
+export interface PingResponse {
   status: string;
 }
 
 /**
- * Definition for a resource to subscribe or unsubscribe from, or to retrieve
- * subscriptions for. Includes a PID and optional (in some cases) resource type.
+ * Definition for a resource to subscribe or unsubscribe from.
  */
-export interface ResourceDefinition {
+export interface SubscriptionTarget {
   pid: string;
   resourceType: string;
 }
+
+/** Definition for a resource-type-scoped subscription query. */
+export interface ResourceTypeRequest {
+  resourceType: string;
+}
+
+/** Definition for a PID-scoped subscription query. */
+export interface PidRequest {
+  pid: string;
+}
+
+/** Shape returned when querying subscribed resource types for a PID. */
+export type ResourceTypesByPidResponse = string[];
+
+type RequestDefinition = Partial<SubscriptionTarget>;
 
 /**
  * NotificationClient provides methods to subscribe, unsubscribe, and retrieve
@@ -131,7 +145,7 @@ export interface ResourceDefinition {
  */
 export class NotificationClient {
   private readonly prefixUrl: string;
-  private readonly getToken: TokenSupplier;
+  private readonly getToken?: TokenSupplier;
   private readonly validatePID: PidValidator;
   private readonly resourceTypes: Set<string>;
   private readonly ky: KyInstance;
@@ -146,8 +160,10 @@ export class NotificationClient {
   }: NotificationClientOptions) {
     // Validate prefixUrl is provided
     if (!prefixUrl) throw new TypeError(ERROR_MESSAGES.prefixUrl);
-    // Validate getToken is a function
-    if (typeof getToken !== "function") throw new TypeError(ERROR_MESSAGES.getToken);
+    // Validate getToken if provided is a function
+    if (getToken !== undefined && typeof getToken !== "function") {
+      throw new TypeError(ERROR_MESSAGES.getToken);
+    }
 
     // Validate validatePID if provided is a function
     if (validatePID && typeof validatePID !== "function") {
@@ -181,7 +197,7 @@ export class NotificationClient {
    * @returns A promise resolving to the subscription response or undefined.
    */
   subscribe(
-    resource: ResourceDefinition,
+    resource: SubscriptionTarget,
     options: KyRequestOptions = {},
   ): Promise<SubscriptionResponse | undefined> {
     return this.request<SubscriptionResponse>({
@@ -198,7 +214,7 @@ export class NotificationClient {
    * @returns A promise resolving when the operation completes.
    */
   async unsubscribe(
-    resource: ResourceDefinition,
+    resource: SubscriptionTarget,
     options: KyRequestOptions = {},
   ): Promise<SubscriptionResponse | undefined> {
     return this.request<SubscriptionResponse>({
@@ -209,17 +225,17 @@ export class NotificationClient {
   }
 
   /**
-   * Retrieve subscriptions for a given resource type.
-   * @param resource - The resource object containing pid and resourceType.
+   * Retrieve resource types with active subscriptions for a given PID.
+   * @param resource - The resource object containing the pid.
    * @param options - Optional Ky request options.
-   * @returns A promise resolving to the subscriptions or undefined.
+   * @returns A promise resolving to the subscribed resource type names or undefined.
    */
-  getSubscriptionsByPid(
-    resource: ResourceDefinition,
+  getResourceTypesByPid(
+    resource: PidRequest,
     options: KyRequestOptions = {},
-  ): Promise<SubscriptionResponse | undefined> {
-    return this.request<SubscriptionResponse>({
-      methodName: "getSubscriptionsByPid",
+  ): Promise<ResourceTypesByPidResponse | undefined> {
+    return this.request<ResourceTypesByPidResponse>({
+      methodName: "getResourceTypesByPid",
       resource,
       ...options,
     });
@@ -232,7 +248,7 @@ export class NotificationClient {
    * @returns A promise resolving to the subscriptions or undefined.
    */
   getSubscriptionsByType(
-    resource: ResourceDefinition,
+    resource: ResourceTypeRequest,
     options: KyRequestOptions = {},
   ): Promise<SubscriptionResponse | undefined> {
     return this.request<SubscriptionResponse>({
@@ -250,7 +266,6 @@ export class NotificationClient {
   ping(options: KyRequestOptions = {}): Promise<PingResponse | undefined> {
     return this.request<PingResponse>({
       methodName: "ping",
-      resource: { pid: "", resourceType: "" },
       ...options,
     });
   }
@@ -270,7 +285,7 @@ export class NotificationClient {
     // If no error, proceed with the request
 
     // Get authentication token, always required
-    const token = await Promise.resolve(this.getToken());
+    const token = await this.getRequiredToken();
     if (!token) throw new Error(ERROR_MESSAGES.noToken);
 
     // Construct the endpoint
@@ -295,6 +310,16 @@ export class NotificationClient {
     return Array.from(
       new Set(resourceTypes.map((type) => type.trim()).filter((type) => type.length > 0)),
     );
+  }
+
+  private async getRequiredToken(): Promise<string> {
+    if (typeof this.getToken !== "function") {
+      throw new Error(ERROR_MESSAGES.noToken);
+    }
+
+    const token = await Promise.resolve(this.getToken());
+    if (!token) throw new Error(ERROR_MESSAGES.noToken);
+    return token;
   }
 
   private validateInput(

@@ -49,7 +49,6 @@ define(["deps/dataone-notifications.bundle.umd"], (DataONENotifications) => {
 
 ### <script> tag (UMD, ky bundled)
 
-Install
 
 ```sh
 git clone https://github.com/DataONEorg/notification-service-js.git
