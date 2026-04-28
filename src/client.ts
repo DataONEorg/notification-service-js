@@ -254,7 +254,7 @@ export class NotificationClient {
 
   /**
    * Retrieve subscriptions for a given resource type.
-   * @param resource - The resource object containing pid and resourceType.
+   * @param resource - The resource object containing resourceType.
    * @param options - Optional Ky request options.
    * @returns A promise resolving to the subscriptions or undefined.
    */
@@ -366,7 +366,7 @@ export class NotificationClient {
       throw new Error(ERROR_MESSAGES.noToken);
     }
 
-    const token = await Promise.resolve(this.getToken());
+    const token = (await Promise.resolve(this.getToken()))?.trim();
     if (!token) throw new Error(ERROR_MESSAGES.noToken);
     return token;
   }

@@ -232,9 +232,9 @@ describe("NotificationClient", () => {
     ["unsubscribe", (client) => client.unsubscribe(resource)],
     ["getResourceTypesByPid", (client) => client.getResourceTypesByPid({ pid: "pid-123" })],
     ["getSubscriptionsByType", (client) => client.getSubscriptionsByType(resourceTypeRequest)],
-  ])("requires a non-empty token for %s", async (_methodName, callClient) => {
+  ])("requires a non-blank token for %s", async (_methodName, callClient) => {
     const kyMock = vi.fn();
-    const getToken = vi.fn(() => "");
+    const getToken = vi.fn(() => "   ");
     const client = new NotificationClient({
       prefixUrl: "https://api.example.org/v1/",
       getToken,

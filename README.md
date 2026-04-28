@@ -7,7 +7,7 @@
 - Contact us: support@dataone.org
 - [DataONE discussions](https://github.com/DataONEorg/dataone/discussions)
 
-The DataONE Notification Service JavaScript client provides an interface to the [DataONE Notification Service API]. This interface can be used by web applications to allow users to subscribe, unsubscribe, and manage notifications for datasets and portals. Events users can subscribe to include downloads, views, citations, derived products, new datasets added to a portal, reminders to update a portal, etc.
+The DataONE Notification Service JavaScript client provides an interface to the [DataONE Notification Service API](https://github.com/DataONEorg/notification-service). This interface can be used by web applications to allow users to subscribe, unsubscribe, and manage notifications for datasets and portals. Events users can subscribe to include downloads, views, citations, derived products, new datasets added to a portal, reminders to update a portal, etc.
 
 DataONE in general, and the Notification Service client in particular, are open source, community projects. We [welcome contributions](./CONTRIBUTING.md) in many forms, including code, graphics, documentation, bug reports, testing, etc. Use the [DataONE discussions](https://github.com/DataONEorg/dataone/discussions) to discuss these contributions with us.
 
