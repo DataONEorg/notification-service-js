@@ -203,7 +203,7 @@ export class NotificationClient {
 
   /**
    * Subscribe to notifications for a given PID and resource type.
-   * @param resource - The resource object containing pid and optional resourceType.
+   * @param resource - The resource object containing pid and resourceType.
    * @param options - Optional Ky request options.
    * @returns A promise resolving to the subscription response or undefined.
    */
@@ -222,7 +222,7 @@ export class NotificationClient {
    * Unsubscribe from notifications for a given PID and resource type.
    * @param resource - The resource object containing pid and resourceType.
    * @param options - Optional Ky request options.
-   * @returns A promise resolving when the operation completes.
+   * @returns A promise resolving to the subscription response or undefined.
    */
   async unsubscribe(
     resource: SubscriptionTarget,
@@ -330,6 +330,9 @@ export class NotificationClient {
       return baseUrl;
     }
 
+    if (typeof apiVersion !== "string") {
+      throw new TypeError('apiVersion must be a string or false');
+    }
     const normalizedVersion = apiVersion.trim().replace(/^\/+|\/+$/g, "");
     if (!normalizedVersion) {
       return baseUrl;
