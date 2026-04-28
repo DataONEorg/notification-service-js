@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import ky from "ky";
 import { NotificationClient } from "../src/client.ts";
 
 afterEach(() => {
@@ -30,6 +31,36 @@ describe("NotificationClient", () => {
     });
 
     expect(client).toBeInstanceOf(NotificationClient);
+  });
+
+  it.each([
+    [
+      "https://api.example.org/notifications",
+      undefined,
+      "https://api.example.org/notifications/v1",
+    ],
+    ["https://api.example.org/notifications/", "v2", "https://api.example.org/notifications/v2"],
+    [
+      "https://api.example.org/notifications/v1/",
+      undefined,
+      "https://api.example.org/notifications/v1",
+    ],
+    ["https://api.example.org/notifications", false, "https://api.example.org/notifications"],
+  ])("resolves prefixUrl with apiVersion", (prefixUrl, apiVersion, expectedPrefixUrl) => {
+    const kyCreate = vi.spyOn(ky, "create").mockReturnValue(vi.fn());
+    const options = {
+      prefixUrl,
+    };
+
+    if (apiVersion !== undefined) {
+      options.apiVersion = apiVersion;
+    }
+
+    new NotificationClient(options);
+
+    expect(kyCreate).toHaveBeenCalledWith({
+      prefixUrl: expectedPrefixUrl,
+    });
   });
 
   it("subscribes to a PID and returns the subscription response", async () => {
@@ -169,6 +200,34 @@ describe("NotificationClient", () => {
     expect(result).toEqual(subscriptions);
   });
 
+  it("sends the canonical resource type for backend requests", async () => {
+    const subscription = {
+      resourceIds: ["pid-123"],
+      resourceType: "datasetChanges",
+      subject: "user-1",
+    };
+    const response = {
+      status: 200,
+      json: vi.fn().mockResolvedValue(subscription),
+    };
+    const kyMock = vi.fn().mockResolvedValue(response);
+    const client = new NotificationClient({
+      prefixUrl: "https://api.example.org/v1/",
+      getToken: () => "token-123",
+      kyInstance: kyMock,
+    });
+
+    await client.subscribe({
+      pid: "pid-123",
+      resourceType: "DATASET-CHANGES",
+    });
+
+    expect(kyMock).toHaveBeenCalledWith("datasetChanges/pid-123", {
+      method: "POST",
+      headers: { Authorization: "Bearer token-123" },
+    });
+  });
+
   it("throws at request time when an authenticated call has no token supplier", async () => {
     const kyMock = vi.fn();
     const client = new NotificationClient({
@@ -177,6 +236,23 @@ describe("NotificationClient", () => {
     });
 
     await expect(client.subscribe(resource)).rejects.toThrowError("Token is required");
+    expect(kyMock).not.toHaveBeenCalled();
+  });
+
+  it("awaits async PID validation before making a request", async () => {
+    const kyMock = vi.fn();
+    const getToken = vi.fn(() => "token-123");
+    const validatePID = vi.fn().mockResolvedValue(false);
+    const client = new NotificationClient({
+      prefixUrl: "https://api.example.org/v1/",
+      getToken,
+      validatePID,
+      kyInstance: kyMock,
+    });
+
+    await expect(client.subscribe(resource)).rejects.toThrowError("PID is invalid");
+    expect(validatePID).toHaveBeenCalledWith("pid-123");
+    expect(getToken).not.toHaveBeenCalled();
     expect(kyMock).not.toHaveBeenCalled();
   });
 
@@ -197,10 +273,9 @@ describe("NotificationClient", () => {
 
     expect(kyMock).toHaveBeenCalledWith("metrics/ping", {
       method: "GET",
-      headers: { Authorization: "Bearer async-token" },
     });
     expect(result).toEqual({ status: "ok" });
-    expect(getToken).toHaveBeenCalledTimes(1);
+    expect(getToken).not.toHaveBeenCalled();
   });
 
   it("throws when subscribing to an unsupported resource type", async () => {

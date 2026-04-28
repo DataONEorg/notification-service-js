@@ -41,22 +41,27 @@ export const ENDPOINTS = Object.freeze({
   subscribe: {
     endpoint: "{resource}/{pid}",
     method: HTTP_METHODS.POST,
+    authRequired: true,
   },
   unsubscribe: {
     endpoint: "{resource}/{pid}",
     method: HTTP_METHODS.DELETE,
+    authRequired: true,
   },
   getResourceTypesByPid: {
     endpoint: "pid/{pid}",
     method: HTTP_METHODS.GET,
+    authRequired: true,
   },
   getSubscriptionsByType: {
     endpoint: "{resource}",
     method: HTTP_METHODS.GET,
+    authRequired: true,
   },
   ping: {
     endpoint: "metrics/ping",
     method: HTTP_METHODS.GET,
+    authRequired: false,
   },
 } as const);
 
@@ -96,6 +101,7 @@ interface InternalRequestOptions extends KyRequestOptions {
 export interface NotificationClientOptions {
   prefixUrl: string;
   getToken?: TokenSupplier;
+  apiVersion?: string | false;
   validatePID?: PidValidator;
   resourceTypes?: ReadonlyArray<string>;
   kyOptions?: KyOptions;
@@ -139,6 +145,11 @@ export type ResourceTypesByPidResponse = string[];
 
 type RequestDefinition = Partial<SubscriptionTarget>;
 
+interface ValidatedRequestDefinition {
+  resourceType: string;
+  pid: string;
+}
+
 /**
  * NotificationClient provides methods to subscribe, unsubscribe, and retrieve
  * subscriptions for resources, handling authentication and request validation.
@@ -147,12 +158,13 @@ export class NotificationClient {
   private readonly prefixUrl: string;
   private readonly getToken?: TokenSupplier;
   private readonly validatePID: PidValidator;
-  private readonly resourceTypes: Set<string>;
+  private readonly resourceTypes: Map<string, string>;
   private readonly ky: KyInstance;
 
   constructor({
     prefixUrl,
     getToken,
+    apiVersion = "v1",
     validatePID,
     resourceTypes = DEFAULT_TYPES,
     kyOptions = {},
@@ -171,16 +183,15 @@ export class NotificationClient {
     }
     // Normalize and validate resource types array
     const normalizedTypes = this.normalizeResourceTypes(resourceTypes);
-    if (normalizedTypes.length === 0) {
+    if (normalizedTypes.size === 0) {
       throw new TypeError(ERROR_MESSAGES.resourceTypes);
     }
 
-    // Remove trailing slashes from prefixUrl
-    this.prefixUrl = prefixUrl.replace(/\/+$/, "");
+    this.prefixUrl = this.resolvePrefixUrl(prefixUrl, apiVersion);
     this.getToken = getToken;
     // Use provided validatePID or default to always true
     this.validatePID = validatePID ?? (() => true);
-    this.resourceTypes = new Set(normalizedTypes);
+    this.resourceTypes = normalizedTypes;
     // Use provided kyInstance or create a new one with prefixUrl and options
     this.ky =
       kyInstance ??
@@ -280,24 +291,31 @@ export class NotificationClient {
     const normalizedResourceType: string = resourceType?.trim() ?? "";
     const normalizedPid: string = pid?.trim() ?? "";
 
-    // Validate inputs based on endpoint requirements
-    this.validateInput(methodName, normalizedResourceType, normalizedPid);
-    // If no error, proceed with the request
-
-    // Get authentication token, always required
-    const token = await this.getRequiredToken();
-    if (!token) throw new Error(ERROR_MESSAGES.noToken);
+    const validatedResource = await this.validateInput(
+      methodName,
+      normalizedResourceType,
+      normalizedPid,
+    );
 
     // Construct the endpoint
-    const endpoint = this.constructEndpoint(methodName, normalizedResourceType, normalizedPid);
+    const endpoint = this.constructEndpoint(
+      methodName,
+      validatedResource.resourceType,
+      validatedResource.pid,
+    );
     const method = this.getHTTPMethod(methodName);
 
-    // Make the request using ky
-    const response = await this.ky(endpoint, {
-      method,
-      headers: { Authorization: `Bearer ${token}` },
+    const requestOptions: KyOptions = {
       ...rest,
-    });
+      method,
+    };
+    if (this.isAuthRequired(methodName)) {
+      const token = await this.getRequiredToken();
+      requestOptions.headers = { Authorization: `Bearer ${token}` };
+    }
+
+    // Make the request using ky
+    const response = await this.ky(endpoint, requestOptions);
 
     if ([204, 205, 304].includes(response.status)) {
       return undefined;
@@ -306,10 +324,41 @@ export class NotificationClient {
     return (await response.json()) as T;
   }
 
-  private normalizeResourceTypes(resourceTypes: ReadonlyArray<string>): string[] {
-    return Array.from(
-      new Set(resourceTypes.map((type) => type.trim()).filter((type) => type.length > 0)),
-    );
+  private resolvePrefixUrl(prefixUrl: string, apiVersion: string | false): string {
+    const baseUrl = prefixUrl.replace(/\/+$/, "");
+    if (apiVersion === false) {
+      return baseUrl;
+    }
+
+    const normalizedVersion = apiVersion.trim().replace(/^\/+|\/+$/g, "");
+    if (!normalizedVersion) {
+      return baseUrl;
+    }
+
+    const lastSegment = baseUrl.substring(baseUrl.lastIndexOf("/") + 1);
+    if (lastSegment === normalizedVersion) {
+      return baseUrl;
+    }
+
+    return `${baseUrl}/${normalizedVersion}`;
+  }
+
+  private normalizeResourceTypes(resourceTypes: ReadonlyArray<string>): Map<string, string> {
+    const normalizedTypes = new Map<string, string>();
+
+    for (const rawType of resourceTypes) {
+      const canonicalType = rawType.trim();
+      const normalizedType = this.normalizeResourceTypeKey(canonicalType);
+      if (canonicalType && normalizedType && !normalizedTypes.has(normalizedType)) {
+        normalizedTypes.set(normalizedType, canonicalType);
+      }
+    }
+
+    return normalizedTypes;
+  }
+
+  private normalizeResourceTypeKey(resourceType: string): string {
+    return resourceType.replace(/[^A-Za-z0-9]/g, "").toLowerCase();
   }
 
   private async getRequiredToken(): Promise<string> {
@@ -322,31 +371,36 @@ export class NotificationClient {
     return token;
   }
 
-  private validateInput(
+  private async validateInput(
     methodName: keyof typeof ENDPOINTS,
     resourceType: string,
     pid: string,
-  ): void {
+  ): Promise<ValidatedRequestDefinition> {
     const endpointConfig = ENDPOINTS[methodName];
     const resourceTypeRequired: boolean = endpointConfig.endpoint.includes("{resource}");
     const pidRequired: boolean = endpointConfig.endpoint.includes("{pid}");
+    let canonicalResourceType = resourceType;
 
     if (resourceTypeRequired) {
       if (!resourceType) throw new Error(ERROR_MESSAGES.resourceType);
-      if (!this.resourceTypes.has(resourceType)) throw new Error(ERROR_MESSAGES.resourceType);
+      const normalizedResourceType = this.normalizeResourceTypeKey(resourceType);
+      const configuredResourceType = this.resourceTypes.get(normalizedResourceType);
+      if (!configuredResourceType) throw new Error(ERROR_MESSAGES.resourceType);
+      canonicalResourceType = configuredResourceType;
     }
 
     if (pidRequired) {
       if (!pid) throw new Error(ERROR_MESSAGES.noPid);
-      const isValidPid = this.validatePID(pid);
-      if (isValidPid instanceof Promise) {
-        isValidPid.then((valid) => {
-          if (!valid) throw new Error(ERROR_MESSAGES.invalidPid);
-        });
-      } else if (!isValidPid) {
+      const isValidPid = await Promise.resolve(this.validatePID(pid));
+      if (!isValidPid) {
         throw new Error(ERROR_MESSAGES.invalidPid);
       }
     }
+
+    return {
+      resourceType: canonicalResourceType,
+      pid,
+    };
   }
 
   private constructEndpoint(
@@ -362,6 +416,10 @@ export class NotificationClient {
 
   private getHTTPMethod(methodName: keyof typeof ENDPOINTS): HttpMethod {
     return ENDPOINTS[methodName].method;
+  }
+
+  private isAuthRequired(methodName: keyof typeof ENDPOINTS): boolean {
+    return ENDPOINTS[methodName].authRequired;
   }
 }
 
