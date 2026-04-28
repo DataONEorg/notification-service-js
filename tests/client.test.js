@@ -15,6 +15,11 @@ const resourceTypeRequest = {
   resourceType: "datasetChanges",
 };
 
+const jsonResponse = (body, status = 200) => ({
+  status,
+  json: vi.fn().mockResolvedValue(body),
+});
+
 describe("NotificationClient", () => {
   it("instantiates a client", () => {
     const client = new NotificationClient({
@@ -40,6 +45,7 @@ describe("NotificationClient", () => {
       "https://api.example.org/notifications/v1",
     ],
     ["https://api.example.org/notifications/", "v2", "https://api.example.org/notifications/v2"],
+    ["https://api.example.org/notifications/", "/v2/", "https://api.example.org/notifications/v2"],
     [
       "https://api.example.org/notifications/v1/",
       undefined,
@@ -69,10 +75,7 @@ describe("NotificationClient", () => {
       resourceType: "datasetChanges",
       subject: "user-1",
     };
-    const response = {
-      status: 200,
-      json: vi.fn().mockResolvedValue(subscription),
-    };
+    const response = jsonResponse(subscription);
     const kyMock = vi.fn().mockResolvedValue(response);
     const getToken = vi.fn(() => "token-123");
     const client = new NotificationClient({
@@ -98,10 +101,7 @@ describe("NotificationClient", () => {
       resourceType: "datasetChanges",
       subject: "user-1",
     };
-    const response = {
-      status: 200,
-      json: vi.fn().mockResolvedValue(subscription),
-    };
+    const response = jsonResponse(subscription);
     const kyMock = vi.fn().mockResolvedValue(response);
     const client = new NotificationClient({
       prefixUrl: "https://api.example.org/v1/",
@@ -128,10 +128,7 @@ describe("NotificationClient", () => {
       resourceType: "datasetChanges",
       subject: "user-1",
     };
-    const response = {
-      status: 200,
-      json: vi.fn().mockResolvedValue(subscription),
-    };
+    const response = jsonResponse(subscription);
     const kyMock = vi.fn().mockResolvedValue(response);
     const getToken = vi.fn(() => "token-abc");
     const client = new NotificationClient({
@@ -151,10 +148,7 @@ describe("NotificationClient", () => {
 
   it("fetches subscribed resource types for a PID", async () => {
     const responseBody = ["datasetChanges", "citations"];
-    const response = {
-      status: 200,
-      json: vi.fn().mockResolvedValue(responseBody),
-    };
+    const response = jsonResponse(responseBody);
     const kyMock = vi.fn().mockResolvedValue(response);
     const client = new NotificationClient({
       prefixUrl: "https://api.example.org/v1/",
@@ -179,10 +173,7 @@ describe("NotificationClient", () => {
       resourceType: "datasetChanges",
       subject: "user-1",
     };
-    const response = {
-      status: 200,
-      json: vi.fn().mockResolvedValue(subscriptions),
-    };
+    const response = jsonResponse(subscriptions);
     const kyMock = vi.fn().mockResolvedValue(response);
     const client = new NotificationClient({
       prefixUrl: "https://api.example.org/v1/",
@@ -206,10 +197,7 @@ describe("NotificationClient", () => {
       resourceType: "datasetChanges",
       subject: "user-1",
     };
-    const response = {
-      status: 200,
-      json: vi.fn().mockResolvedValue(subscription),
-    };
+    const response = jsonResponse(subscription);
     const kyMock = vi.fn().mockResolvedValue(response);
     const client = new NotificationClient({
       prefixUrl: "https://api.example.org/v1/",
@@ -239,6 +227,60 @@ describe("NotificationClient", () => {
     expect(kyMock).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["subscribe", (client) => client.subscribe(resource)],
+    ["unsubscribe", (client) => client.unsubscribe(resource)],
+    ["getResourceTypesByPid", (client) => client.getResourceTypesByPid({ pid: "pid-123" })],
+    ["getSubscriptionsByType", (client) => client.getSubscriptionsByType(resourceTypeRequest)],
+  ])("requires a non-empty token for %s", async (_methodName, callClient) => {
+    const kyMock = vi.fn();
+    const getToken = vi.fn(() => "");
+    const client = new NotificationClient({
+      prefixUrl: "https://api.example.org/v1/",
+      getToken,
+      kyInstance: kyMock,
+    });
+
+    await expect(callClient(client)).rejects.toThrowError("Token is required");
+    expect(getToken).toHaveBeenCalledTimes(1);
+    expect(kyMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      "subscribe missing PID",
+      (client) => client.subscribe({ pid: "", resourceType: "datasetChanges" }),
+      "PID is required",
+    ],
+    [
+      "lookup blank PID",
+      (client) => client.getResourceTypesByPid({ pid: "   " }),
+      "PID is required",
+    ],
+    [
+      "subscribe missing resource type",
+      (client) => client.subscribe({ pid: "pid-123", resourceType: "" }),
+      "Invalid resource type",
+    ],
+    [
+      "list unsupported resource type",
+      (client) => client.getSubscriptionsByType({ resourceType: "unsupported" }),
+      "Invalid resource type",
+    ],
+  ])("rejects %s before token lookup or network", async (_caseName, callClient, expectedError) => {
+    const kyMock = vi.fn();
+    const getToken = vi.fn(() => "token-123");
+    const client = new NotificationClient({
+      prefixUrl: "https://api.example.org/v1/",
+      getToken,
+      kyInstance: kyMock,
+    });
+
+    await expect(callClient(client)).rejects.toThrowError(expectedError);
+    expect(getToken).not.toHaveBeenCalled();
+    expect(kyMock).not.toHaveBeenCalled();
+  });
+
   it("awaits async PID validation before making a request", async () => {
     const kyMock = vi.fn();
     const getToken = vi.fn(() => "token-123");
@@ -257,10 +299,7 @@ describe("NotificationClient", () => {
   });
 
   it("pings the notification service", async () => {
-    const response = {
-      status: 200,
-      json: vi.fn().mockResolvedValue({ status: "ok" }),
-    };
+    const response = jsonResponse({ status: "ok" });
     const kyMock = vi.fn().mockResolvedValue(response);
     const getToken = vi.fn().mockResolvedValue("async-token");
     const client = new NotificationClient({
@@ -276,6 +315,24 @@ describe("NotificationClient", () => {
     });
     expect(result).toEqual({ status: "ok" });
     expect(getToken).not.toHaveBeenCalled();
+  });
+
+  it("returns undefined for no-content responses without parsing JSON", async () => {
+    const response = {
+      status: 204,
+      json: vi.fn(),
+    };
+    const kyMock = vi.fn().mockResolvedValue(response);
+    const client = new NotificationClient({
+      prefixUrl: "https://api.example.org/v1/",
+      getToken: () => "token-abc",
+      kyInstance: kyMock,
+    });
+
+    const result = await client.unsubscribe(resource);
+
+    expect(result).toBeUndefined();
+    expect(response.json).not.toHaveBeenCalled();
   });
 
   it("throws when subscribing to an unsupported resource type", async () => {
